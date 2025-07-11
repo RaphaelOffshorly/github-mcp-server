@@ -34,7 +34,7 @@ func Encrypt(plaintext, key string) (string, error) {
 	}
 	
 	ciphertext := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
-	return base64.URLSafeEncoding.EncodeToString(ciphertext), nil
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
 // Decrypt decrypts cipher text using AES-GCM
@@ -46,7 +46,7 @@ func Decrypt(ciphertext, key string) (string, error) {
 		return "", fmt.Errorf("decryption key must be 32 bytes long")
 	}
 	
-	data, err := base64.URLSafeEncoding.DecodeString(ciphertext)
+	data, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode base64: %w", err)
 	}
@@ -81,7 +81,7 @@ func GenerateKey() (string, error) {
 	if _, err := rand.Read(key); err != nil {
 		return "", fmt.Errorf("failed to generate key: %w", err)
 	}
-	return base64.URLSafeEncoding.EncodeToString(key), nil
+	return base64.StdEncoding.EncodeToString(key), nil
 }
 
 // PrepareKey takes a key string and ensures it's 32 bytes
@@ -91,7 +91,7 @@ func PrepareKey(key string) (string, error) {
 	}
 	
 	// If it's base64 encoded, decode it
-	if decoded, err := base64.URLSafeEncoding.DecodeString(key); err == nil {
+	if decoded, err := base64.StdEncoding.DecodeString(key); err == nil {
 		if len(decoded) == 32 {
 			return string(decoded), nil
 		}
