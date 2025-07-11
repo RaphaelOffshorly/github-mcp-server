@@ -66,8 +66,8 @@ func Decrypt(ciphertext, key string) (string, error) {
 		return "", fmt.Errorf("ciphertext too short")
 	}
 	
-	nonce, ciphertext := data[:nonceSize], data[nonceSize:]
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	nonce, encryptedData := data[:nonceSize], data[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, encryptedData, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
