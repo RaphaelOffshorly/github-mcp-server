@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub MCP Server SSE Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.connected {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.error {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .events {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .event {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: white;
+            border-left: 4px solid #007bff;
+        }
+        .event.error {
+            border-left-color: #dc3545;
+        }
+        .event.connected {
+            border-left-color: #28a745;
+        }
+        .event.ping {
+            border-left-color: #ffc107;
+        }
+        .event-time {
+            font-size: 12px;
+            color: #666;
+        }
+        .event-data {
+            margin-top: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GitHub MCP Server SSE Test</h1>
+        
+        <div class="input-group">
+            <label for="serverUrl">Server URL:</label>
+            <input type="text" id="serverUrl" value="http://localhost:8080">
+        </div>
+        
+        <div class="input-group">
+            <label for="token">GitHub Token (encrypted or plain):</label>
+            <input type="password" id="token" placeholder="Enter your GitHub token or encrypted token">
+        </div>
+        
+        <div class="input-group">
+            <label for="userId">User ID (optional):</label>
+            <input type="text" id="userId" placeholder="Enter a user ID">
+        </div>
+        
+        <div class="input-group">
+            <label>
+                <input type="checkbox" id="encrypted"> Token is encrypted
+            </label>
+        </div>
+        
+        <button id="connectBtn" onclick="connect()">Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()" disabled>Disconnect</button>
+        
+        <div id="status" class="status disconnected">Disconnected</div>
+        
+        <div class="events">
+            <h3>Events:</h3>
+            <div id="events"></div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        let isConnected = false;
+        
+        function connect() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const token = document.getElementById('token').value;
+            const userId = document.getElementById('userId').value;
+            const encrypted = document.getElementById('encrypted').checked;
+            
+            if (!serverUrl || !token) {
+                alert('Please enter server URL and token');
+                return;
+            }
+            
+            // Build URL with parameters
+            const params = new URLSearchParams();
+            params.append('token', token);
+            if (encrypted) {
+                params.append('encrypted', 'true');
+            }
+            if (userId) {
+                params.append('user_id', userId);
+            }
+            
+            const url = `${serverUrl}/sse?${params.toString()}`;
+            
+            // Create EventSource
+            eventSource = new EventSource(url);
+            
+            eventSource.onopen = function() {
+                updateStatus('connected', 'Connected to server');
+                document.getElementById('connectBtn').disabled = true;
+                document.getElementById('disconnectBtn').disabled = false;
+                isConnected = true;
+            };
+            
+            eventSource.onmessage = function(event) {
+                addEvent('message', event.data);
+            };
+            
+            eventSource.addEventListener('connected', function(event) {
+                addEvent('connected', event.data);
+            });
+            
+            eventSource.addEventListener('ping', function(event) {
+                addEvent('ping', event.data);
+            });
+            
+            eventSource.addEventListener('error', function(event) {
+                addEvent('error', event.data);
+            });
+            
+            eventSource.onerror = function(event) {
+                updateStatus('error', 'Connection error');
+                if (isConnected) {
+                    addEvent('error', 'Connection lost');
+                }
+                isConnected = false;
+                document.getElementById('connectBtn').disabled = false;
+                document.getElementById('disconnectBtn').disabled = true;
+            };
+        }
+        
+        function disconnect() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            updateStatus('disconnected', 'Disconnected');
+            document.getElementById('connectBtn').disabled = false;
+            document.getElementById('disconnectBtn').disabled = true;
+            isConnected = false;
+        }
+        
+        function updateStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.textContent = message;
+        }
+        
+        function addEvent(type, data) {
+            const eventsDiv = document.getElementById('events');
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event ${type}`;
+            
+            const time = new Date().toLocaleTimeString();
+            eventDiv.innerHTML = `
+                <div class="event-time">${time} - ${type}</div>
+                <div class="event-data">${data}</div>
+            `;
+            
+            eventsDiv.appendChild(eventDiv);
+            eventsDiv.scrollTop = eventsDiv.scrollHeight;
+        }
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', function() {
+            if (eventSource) {
+                eventSource.close();
+            }
+        });
+    </script>
+</body>
+</html>

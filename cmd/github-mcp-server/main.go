@@ -59,6 +59,40 @@ var (
 			return ghmcp.RunStdioServer(stdioServerConfig)
 		},
 	}
+
+	sseCmd = &cobra.Command{
+		Use:   "sse",
+		Short: "Start SSE server",
+		Long:  `Start a Server-Sent Events (SSE) server that allows multiple users to connect with their own GitHub tokens.`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			encryptionKey := viper.GetString("encryption_key")
+			if encryptionKey == "" {
+				return errors.New("GITHUB_ENCRYPTION_KEY not set - required for SSE server")
+			}
+
+			// If you're wondering why we're not using viper.GetStringSlice("toolsets"),
+			// it's because viper doesn't handle comma-separated values correctly for env
+			// vars when using GetStringSlice.
+			// https://github.com/spf13/viper/issues/380
+			var enabledToolsets []string
+			if err := viper.UnmarshalKey("toolsets", &enabledToolsets); err != nil {
+				return fmt.Errorf("failed to unmarshal toolsets: %w", err)
+			}
+
+			sseServerConfig := ghmcp.SSEServerConfig{
+				Version:              version,
+				Host:                 viper.GetString("host"),
+				EnabledToolsets:      enabledToolsets,
+				DynamicToolsets:      viper.GetBool("dynamic_toolsets"),
+				ReadOnly:             viper.GetBool("read-only"),
+				Port:                 viper.GetInt("port"),
+				EncryptionKey:        encryptionKey,
+				EnableCommandLogging: viper.GetBool("enable-command-logging"),
+				LogFilePath:          viper.GetString("log-file"),
+			}
+			return ghmcp.RunSSEServer(sseServerConfig)
+		},
+	}
 )
 
 func init() {
@@ -76,6 +110,9 @@ func init() {
 	rootCmd.PersistentFlags().Bool("export-translations", false, "Save translations to a JSON file")
 	rootCmd.PersistentFlags().String("gh-host", "", "Specify the GitHub hostname (for GitHub Enterprise etc.)")
 
+	// Add SSE-specific flags
+	sseCmd.Flags().Int("port", 8080, "Port to run the SSE server on")
+
 	// Bind flag to viper
 	_ = viper.BindPFlag("toolsets", rootCmd.PersistentFlags().Lookup("toolsets"))
 	_ = viper.BindPFlag("dynamic_toolsets", rootCmd.PersistentFlags().Lookup("dynamic-toolsets"))
@@ -84,9 +121,11 @@ func init() {
 	_ = viper.BindPFlag("enable-command-logging", rootCmd.PersistentFlags().Lookup("enable-command-logging"))
 	_ = viper.BindPFlag("export-translations", rootCmd.PersistentFlags().Lookup("export-translations"))
 	_ = viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("gh-host"))
+	_ = viper.BindPFlag("port", sseCmd.Flags().Lookup("port"))
 
 	// Add subcommands
 	rootCmd.AddCommand(stdioCmd)
+	rootCmd.AddCommand(sseCmd)
 }
 
 func initConfig() {
