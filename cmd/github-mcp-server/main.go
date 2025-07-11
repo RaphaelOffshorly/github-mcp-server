@@ -86,6 +86,7 @@ var (
 				DynamicToolsets:      viper.GetBool("dynamic_toolsets"),
 				ReadOnly:             viper.GetBool("read-only"),
 				Port:                 viper.GetInt("port"),
+				BindHost:             viper.GetString("bind_host"),
 				EncryptionKey:        encryptionKey,
 				EnableCommandLogging: viper.GetBool("enable-command-logging"),
 				LogFilePath:          viper.GetString("log-file"),
@@ -112,6 +113,7 @@ func init() {
 
 	// Add SSE-specific flags
 	sseCmd.Flags().Int("port", 8080, "Port to run the SSE server on")
+	sseCmd.Flags().String("bind-host", "127.0.0.1", "Host to bind the HTTP server to (e.g. 0.0.0.0, 127.0.0.1)")
 
 	// Bind flag to viper
 	_ = viper.BindPFlag("toolsets", rootCmd.PersistentFlags().Lookup("toolsets"))
@@ -122,6 +124,7 @@ func init() {
 	_ = viper.BindPFlag("export-translations", rootCmd.PersistentFlags().Lookup("export-translations"))
 	_ = viper.BindPFlag("host", rootCmd.PersistentFlags().Lookup("gh-host"))
 	_ = viper.BindPFlag("port", sseCmd.Flags().Lookup("port"))
+	_ = viper.BindPFlag("bind_host", sseCmd.Flags().Lookup("bind-host"))
 
 	// Add subcommands
 	rootCmd.AddCommand(stdioCmd)

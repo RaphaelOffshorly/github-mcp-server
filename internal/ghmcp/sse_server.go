@@ -34,6 +34,9 @@ type SSEServerConfig struct {
 	// Port to run the SSE server on
 	Port int
 
+	// Host to bind the HTTP server to (e.g. 0.0.0.0, 127.0.0.1)
+	BindHost string
+
 	// Encryption key for decrypting tokens
 	EncryptionKey string
 
@@ -260,8 +263,12 @@ func (s *SSEServer) Start() error {
 	router.HandleFunc("/stats", s.handleStats).Methods("GET")
 
 	// Create HTTP server
+	bindHost := s.config.BindHost
+	if bindHost == "" {
+		bindHost = "127.0.0.1"
+	}
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", s.config.Port),
+		Addr:    fmt.Sprintf("%s:%d", bindHost, s.config.Port),
 		Handler: router,
 	}
 
